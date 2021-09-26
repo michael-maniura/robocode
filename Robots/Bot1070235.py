@@ -6,7 +6,7 @@ from AI.state import State
 from Objects.robot import Robot  # Import a base Robot
 import random
 
-class PwnBot(Robot):  # Create a Robot
+class Bot1070235(Robot):  # Create a Robot
 
     def init(self):  # To initialize your robot
 
