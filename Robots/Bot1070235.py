@@ -5,6 +5,7 @@ from AI.state import State
 
 from Objects.robot import Robot  # Import a base Robot
 import random
+import math
 
 class Bot1070235(Robot):  # Create a Robot
 
@@ -49,34 +50,42 @@ class Bot1070235(Robot):  # Create a Robot
             - move 50 points backward: self.backwards()
             - shoots cost 3 points of energy (when the enemy is hit he gets 9 points damage and you receive 6 points cure): self.shoot()
         """
-        self.action_by_enemy_sight_heuristic()
-        self.action_by_shoot_enemy_heuristic()
 
-        #self.action_by_proximity_heuristic()
-        
-        """
-        random_value = random.randint(0,9)
-        if random_value <= 1:
+        alpha = -math.inf
+        beta = math.inf
+
+        state = self.get_current_state()
+        action, evaluation = self.minimax(state, self.maxDepth, alpha, beta, True)
+
+        if self.shot_possible_at_enemy():
+            action = "shoot"
+        print(action)
+        if action == "turn_right":
+           self.turn_right()
+        elif action == "turn_left":
             self.turn_left()
-        elif random_value <= 3:
-            self.turn_right()
-        """
-        
-        """
-        if not self.shot_possible_at_enemy():
-            self.gunTurn(10)
+        elif action == "forward":
             self.forward()
-            pos = self.getPosition()
-            some = 0
-        else:
+        elif action == "backward":
+            self.backwards()
+        elif action == "shoot":
             self.shoot()
-        """
+            self.shoot()
 
     def eval(self, state):
         """implement your evaluation function here"""
         utility = 0
-        return self, utility
+        if state.energy_self <= 0:
+            return -math.inf
+        elif state.energy_enemy <= 0:
+            return math.inf
 
+        utility = utility + self.shoot_enemy_heuristic()*1000
+        utility = utility + self.in_enemy_sight_heuristic()*45
+        utility = utility + self.enemy_proximity_heuristic()*300
+        utility = utility + self.wall_proximity_heuristic()*30
+        
+        return utility
 
     def onHitWall(self):
         self.reset()  # To reset the run fonction to the begining (automatically called on hitWall, and robotHit event)
@@ -114,14 +123,82 @@ class Bot1070235(Robot):  # Create a Robot
     def onEnemyDeath(self):
         pass
 
-    minimal_distance_to_keep = 50.0
+    def get_positions(self):
+        """
+        Get the own as well as the enemy's position as arrays in the form of [x.y]
+        Returns a tuple with the own position as the first and the enemy's position as the second element 
+        """
+        own_position_q_point = self.getPosition()
+        own_position = [own_position_q_point.x(), own_position_q_point.y()]
+        
+        enemy_position_q_point = self.getPosition_enemy()
+        enemy_position = [enemy_position_q_point.x(), enemy_position_q_point.y()]
+        return (own_position, enemy_position)
 
-    def action_by_proximity_heuristic(self):
-        if self.proximity_heuristic() > 0:
-            self.turn_left()
-            self.turn_left()
-            self.turn_left()
-        self.forward()
+    def get_current_state(self):
+        """
+        Get the current state of the game as described the 'State' class from the AI module
+        Returns an instance of 'state'
+        """
+        own_position, enemy_position = self.get_positions()
+
+        state = State(
+            self.energy_left_self(),
+            self.energy_left_enemy(),
+            self.shot_possible_by_enemy(), 
+            self.shot_possible_at_enemy(),
+            own_position,
+            enemy_position,
+            self.getGunHeading(),
+            self.getGunHeading_enemy(),
+            self.getMapSize()
+            )
+
+        return state
+
+    def minimax(self, state, depth, alpha, beta, is_max):
+        """
+        Implements the minimax algorithm to find the best action depending on a given state.
+        Returns the best action to perfom.
+        """
+        if depth == 0 or state.is_terminal():
+            return None, self.eval(state)
+
+        possible_actions = state.get_possible_actions(not is_max)
+        random_int = random.randint(0, len(possible_actions)-1)
+        for count, action in enumerate(possible_actions):
+            if count == random_int:
+                best_action = action
+                break
+        
+        if is_max:
+            max_evaluation = -math.inf
+            for action in possible_actions:
+                new_state = state.apply_action(False, action)
+                new_evaluation = self.minimax(new_state, depth-1, alpha, beta, False)[1]
+                if new_evaluation > max_evaluation:
+                    max_evaluation = new_evaluation
+                    best_action = action
+                
+                alpha = max(alpha, new_evaluation)
+                if beta <= alpha:
+                    break
+            return best_action, max_evaluation
+        else:
+            min_evaluation = math.inf
+            for action in possible_actions:
+                new_state = state.apply_action(True, action)
+                new_evaluation = self.minimax(new_state, depth-1, alpha, beta, True)[1]
+                if new_evaluation < min_evaluation:
+                    min_evaluation = new_evaluation
+                    best_action = action
+                
+                beta = min(beta, new_evaluation)
+                if beta <= alpha:
+                    break
+            return best_action, min_evaluation
+
+    minimal_distance_to_keep = 50.0
 
     def proximity_heuristic(self):
         cost = self.enemy_proximity_heuristic() + self.wall_proximity_heuristic()
@@ -137,10 +214,11 @@ class Bot1070235(Robot):  # Create a Robot
         
         enemy_position_q_point = self.getPosition_enemy()
         enemy_position = [enemy_position_q_point.x(), enemy_position_q_point.y()]
-        if(self.city_block_distance(own_position, enemy_position) <= self.minimal_distance_to_keep):
-            return 1
-        else:
-            return 0
+        return -self.city_block_distance(own_position, enemy_position) 
+        #if(self.city_block_distance(own_position, enemy_position) <= self.minimal_distance_to_keep):
+        #    return 0
+        #else:
+        #    return 1
 
     def wall_proximity_heuristic(self):
         map_x_end, map_y_end = self.getMapSize()
@@ -151,34 +229,23 @@ class Bot1070235(Robot):  # Create a Robot
         own_pos_y = own_pos_q_point.y()
 
         if self.city_block_distance([map_x_end],[own_pos_x]) <= self.minimal_distance_to_keep:
-            return 1
+            return 0
         if self.city_block_distance([map_y_end],[own_pos_y]) <= self.minimal_distance_to_keep:
-            return 1
+            return 0
         if self.city_block_distance([map_x_start],[own_pos_x]) <= self.minimal_distance_to_keep:
-            return 1
+            return 0
         if self.city_block_distance([map_y_start],[own_pos_y]) <= self.minimal_distance_to_keep:
-            return 1
-        return 0
-
-    def action_by_shoot_enemy_heuristic(self):
-        if self.shoot_enemy_heuristic() == 0:
-            self.shoot()
-        else:
-            self.gunTurn(5)
+            return 0
+        return 1
 
     def shoot_enemy_heuristic(self):
         if self.shot_possible_at_enemy():
-            return 0
-        else:
             return 1
-
-    def action_by_enemy_sight_heuristic(self):
-        if self.in_enemy_sight_heuristic() > 0:
-            self.forward()
-            self.forward()
+        else:
+            return 0
 
     def in_enemy_sight_heuristic(self):
         if self.shot_possible_by_enemy():
-            return 1
-        else:
             return 0
+        else:
+            return 1
