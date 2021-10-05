@@ -57,8 +57,11 @@ class Bot1070235(Robot):  # Create a Robot
         state = self.get_current_state()
         action, evaluation = self.minimax(state, self.maxDepth, alpha, beta, True)
 
+        # not quite following the minmax algorithm,
+        # but a successfull little hack for the agent's behaviour
         if self.shot_possible_at_enemy():
             action = "shoot"
+
         print(action)
         if action == "turn_right":
            self.turn_right()
@@ -73,17 +76,16 @@ class Bot1070235(Robot):  # Create a Robot
             self.shoot()
 
     def eval(self, state):
-        """implement your evaluation function here"""
         utility = 0
         if state.energy_self <= 0:
-            return -math.inf
+            return -math.inf+1
         elif state.energy_enemy <= 0:
-            return math.inf
+            return math.inf-1
 
         utility = utility + self.shoot_enemy_heuristic()*1000
-        utility = utility + self.in_enemy_sight_heuristic()*45
-        utility = utility + self.enemy_proximity_heuristic()*300
-        utility = utility + self.wall_proximity_heuristic()*30
+        utility = utility + self.in_enemy_sight_heuristic()*400
+        utility = utility + self.enemy_proximity_heuristic()*200
+        utility = utility + self.wall_proximity_heuristic()*50
         
         return utility
 
@@ -214,7 +216,7 @@ class Bot1070235(Robot):  # Create a Robot
         
         enemy_position_q_point = self.getPosition_enemy()
         enemy_position = [enemy_position_q_point.x(), enemy_position_q_point.y()]
-        return -self.city_block_distance(own_position, enemy_position) 
+        return -self.city_block_distance(own_position, enemy_position)*300
         #if(self.city_block_distance(own_position, enemy_position) <= self.minimal_distance_to_keep):
         #    return 0
         #else:
@@ -229,14 +231,14 @@ class Bot1070235(Robot):  # Create a Robot
         own_pos_y = own_pos_q_point.y()
 
         if self.city_block_distance([map_x_end],[own_pos_x]) <= self.minimal_distance_to_keep:
-            return 0
+            return -5000
         if self.city_block_distance([map_y_end],[own_pos_y]) <= self.minimal_distance_to_keep:
-            return 0
+            return -5000
         if self.city_block_distance([map_x_start],[own_pos_x]) <= self.minimal_distance_to_keep:
-            return 0
+            return -5000
         if self.city_block_distance([map_y_start],[own_pos_y]) <= self.minimal_distance_to_keep:
-            return 0
-        return 1
+            return -5000
+        return 5000
 
     def shoot_enemy_heuristic(self):
         if self.shot_possible_at_enemy():
