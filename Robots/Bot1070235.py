@@ -82,10 +82,10 @@ class Bot1070235(Robot):  # Create a Robot
         elif state.energy_enemy <= 0:
             return math.inf-1
 
-        utility = utility + self.shoot_enemy_heuristic()*1000
-        utility = utility + self.in_enemy_sight_heuristic()*400
-        utility = utility + self.enemy_proximity_heuristic()*200
-        utility = utility + self.wall_proximity_heuristic()*50
+        utility = utility + self.shoot_enemy_heuristic(state)*1000
+        utility = utility + self.in_enemy_sight_heuristic(state)*400
+        #utility = utility + self.enemy_proximity_heuristic(state)*200
+        utility = utility + self.wall_proximity_heuristic(state)*50
         
         return utility
 
@@ -210,25 +210,22 @@ class Bot1070235(Robot):  # Create a Robot
         distance = sum([abs(first - second) for (first, second) in zip(first_position, second_position)])
         return distance
 
-    def enemy_proximity_heuristic(self):
-        own_position_q_point = self.getPosition()
-        own_position = [own_position_q_point.x(), own_position_q_point.y()]
+    def enemy_proximity_heuristic(self, state):
+        own_position = [state.pos_self[0], state.pos_self[1]]
         
-        enemy_position_q_point = self.getPosition_enemy()
-        enemy_position = [enemy_position_q_point.x(), enemy_position_q_point.y()]
+        enemy_position = [state.pos_enemy[0], state.pos_enemy[1]]
         return -self.city_block_distance(own_position, enemy_position)*300
         #if(self.city_block_distance(own_position, enemy_position) <= self.minimal_distance_to_keep):
         #    return 0
         #else:
         #    return 1
 
-    def wall_proximity_heuristic(self):
+    def wall_proximity_heuristic(self, state):
         map_x_end, map_y_end = self.getMapSize()
         map_x_start = 0
         map_y_start = 0
-        own_pos_q_point  = self.getPosition()
-        own_pos_x = own_pos_q_point.x()
-        own_pos_y = own_pos_q_point.y()
+        own_pos_x = state.pos_enemy[0]
+        own_pos_y = state.pos_enemy[1]
 
         if self.city_block_distance([map_x_end],[own_pos_x]) <= self.minimal_distance_to_keep:
             return -5000
@@ -240,14 +237,14 @@ class Bot1070235(Robot):  # Create a Robot
             return -5000
         return 5000
 
-    def shoot_enemy_heuristic(self):
-        if self.shot_possible_at_enemy():
+    def shoot_enemy_heuristic(self, state):
+        if state.shot_possibly_at_enemy:
             return 1
         else:
             return 0
 
-    def in_enemy_sight_heuristic(self):
-        if self.shot_possible_by_enemy():
+    def in_enemy_sight_heuristic(self, state):
+        if state.shot_possibly_by_enemy:
             return 0
         else:
             return 1
